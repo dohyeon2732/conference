@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import SideBar from '../../components/manager/SideBar';
-import TopBar from '../../components/manager/TopBar';
 import Plus from '../../assets/icons/Plus.svg';
 import PCPopUp from '../../components/manager/PCPopUp';
 import PCPopUpMember from '../../components/manager/PCPopUpMember';

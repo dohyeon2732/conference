@@ -1,26 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import MobileTopBar from '../components/MobileTopBar';
 import { useUserApi } from '../hooks/useUserApi';
-import { useNavigate } from 'react-router-dom';
 import { useUserRealtime } from '../contexts/UserRealtimeContext';
+import { useAgendaApi } from '../hooks/useAgendaApi';
+import { useVoteApi } from '../hooks/useVoteApi';
+import { useAttendanceApi } from '../hooks/useAttendanceApi';
+
+type VoteValue = 'AGREE' | 'DISAGREE' | 'ABSTAIN' | null;
 
 const Home = () => {
-  const { state, myAttendance, latestAttendanceUpdate, refreshState } =
-    useUserRealtime();
+  const { state, myAttendance, currentAgendaId } = useUserRealtime();
 
   useEffect(() => {
     document.body.className = 'mobile';
   }, []);
 
-  const navigate = useNavigate();
-
   const [bidae, setBidae] = useState(false);
 
-  const [opinion, setOpinion] = useState(0);
-
+  const [opinion, setOpinion] = useState<VoteValue | null>(null);
+  const [isVoted, setIsVoted] = useState(false);
+  const isVotedRef = useRef(false);
+  const [agendaName, setAgendaName] = useState('');
   const [userName, setUserName] = useState('');
   const [userDept, setUserDept] = useState('');
   const [userId, setUserId] = useState(0);
+  const [attendanceId, setAttendanceId] = useState(0);
   useEffect(() => {
     {
       const fetchMe = async () => {
@@ -38,6 +42,63 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
+    const fetchAttendanceId = async () => {
+      if (currentAgendaId === null || currentAgendaId === 0 || userId === 0)
+        return;
+
+      try {
+        const res = await useAttendanceApi.findByAgendaIdUserId({
+          agendaId: currentAgendaId,
+          userId: userId,
+        });
+        setAttendanceId(res.data.attendanceId);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchAttendanceId();
+  }, [currentAgendaId, userId]);
+
+  // useEffect(() => {
+  //   const sendResult = async () => {
+  //     if (state === 'RESULT') {
+  //       try {
+  //         const voteValue = opinion ?? 'ABSTAIN';
+
+  //         console.log(voteValue);
+
+  //         const res = await useVoteApi.make({
+  //           attendanceId: attendanceId,
+  //           voteValue: voteValue,
+  //         });
+  //         setOpinion(null);
+  //       } catch (e) {
+  //         console.error(e);
+  //       }
+  //     }
+  //   };
+  //   sendResult();
+  // }, [state]);
+
+  useEffect(() => {
+    setIsVoted(false);
+    setOpinion(null);
+  }, [currentAgendaId]);
+
+  useEffect(() => {
+    const fetchAgenda = async () => {
+      if (currentAgendaId === null || currentAgendaId === 0) return;
+      try {
+        const res = await useAgendaApi.findById({ agendaId: currentAgendaId });
+        setAgendaName(res.data.agendaName);
+      } catch (e) {
+        console.error('의결 안건 조회 실패', e);
+      }
+    };
+    fetchAgenda();
+  }, [currentAgendaId]);
+
+  useEffect(() => {
     {
       const bidaeCheck = async () => {
         try {
@@ -50,6 +111,47 @@ const Home = () => {
       bidaeCheck();
     }
   }, [userId]);
+
+  useEffect(() => {
+    const sendResult = async () => {
+      try {
+        const voteValue = opinion ?? 'ABSTAIN';
+        console.log(voteValue, 'attend: ', attendanceId, ' voted :', isVoted);
+
+        if (attendanceId !== 0) {
+          if (!isVotedRef.current) {
+            isVotedRef.current = true;
+            try {
+              await useVoteApi.make({
+                attendanceId,
+                voteValue: voteValue,
+              });
+              setIsVoted(true);
+            } catch (e) {
+              isVotedRef.current = false;
+              throw e;
+            }
+          } else {
+            await useVoteApi.change({
+              attendanceId,
+              voteValue: voteValue,
+            });
+            // console.log('change');
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    sendResult();
+  }, [opinion]);
+
+  useEffect(() => {
+    if (state === 'RESULT') {
+      setIsVoted(false);
+      isVotedRef.current = false;
+    }
+  }, [state]);
 
   return (
     <div className="w-[393px] flex flex-col items-center justify-center">
@@ -87,7 +189,7 @@ const Home = () => {
 
       {/* 의결 중 */}
       {bidae && (
-        <div className="flex flex-col justify-center items-center pt-50 w-[353px] gap-5">
+        <div className="flex flex-col justify-center items-center pt-50 w-[353px] gap-5 text-center">
           <p className="flex justify-center items-center text-neutral-400 text-2xl font-semibold">
             비대위 단위는 의결권이 없습니다.
           </p>
@@ -96,8 +198,8 @@ const Home = () => {
 
       {/* 불참 */}
       {!bidae && !myAttendance && (
-        <div className="flex flex-col justify-center items-center pt-50 w-[353px] gap-5">
-          <p className="flex justify-center items-center text-neutral-400 text-2xl font-semibold">
+        <div className="flex flex-col justify-center items-center pt-50 w-[353px] gap-5 text-center">
+          <p className="flex justify-center items-center text-neutral-400 text-xl font-semibold">
             회의 불참 상태입니다. <br /> 회의에 참석한 후 의결에 참여해주세요.
           </p>
         </div>
@@ -105,7 +207,7 @@ const Home = () => {
 
       {/* 의결 준비중 */}
       {!bidae && state === 'PROGRESS' && myAttendance && (
-        <div className="flex flex-col justify-center items-center pt-50 w-[353px] gap-5">
+        <div className="flex flex-col justify-center items-center pt-50 w-[353px] gap-5 text-center">
           <p className="flex justify-center items-center text-neutral-400 text-2xl font-semibold">
             {' '}
             의결 준비 중
@@ -118,33 +220,31 @@ const Home = () => {
         <div className="flex flex-col justify-center items-center w-[353px] gap-5">
           <div className="flex flex-col gap-2 justify-center items-center text-center">
             <p className="text-2xl font-semibold">의결</p>
-            <p className="text-xl font-semibold">
-              이과대학 상반기 예산안 및 하반기 결산안 승인의 건
-            </p>
+            <p className="text-xl font-semibold">{agendaName}</p>
           </div>
 
           <div className="flex flex-col gap-10">
             <button
               onClick={() => {
-                setOpinion(1);
+                setOpinion('AGREE');
               }}
-              className={`w-96 h-28  rounded-lg justify-center items-center ${opinion === 1 || opinion === 0 ? 'bg-[#57AA5A]' : 'bg-[#8E8E8E]'}`}
+              className={`w-96 h-28  rounded-lg justify-center items-center ${opinion === 'AGREE' || opinion === null ? 'bg-[#57AA5A]' : 'bg-[#8E8E8E]'}`}
             >
               <p className="text-white text-4xl font-semibold">찬성</p>
             </button>
             <button
               onClick={() => {
-                setOpinion(2);
+                setOpinion('DISAGREE');
               }}
-              className={`w-96 h-28  rounded-lg justify-center items-center ${opinion === 2 || opinion === 0 ? 'bg-[#F74040]' : 'bg-[#8E8E8E]'}`}
+              className={`w-96 h-28  rounded-lg justify-center items-center ${opinion === 'DISAGREE' || opinion === null ? 'bg-[#F74040]' : 'bg-[#8E8E8E]'}`}
             >
               <p className="text-white text-4xl font-semibold">반대</p>
             </button>
             <button
               onClick={() => {
-                setOpinion(3);
+                setOpinion('ABSTAIN');
               }}
-              className={`w-96 h-28  rounded-lg justify-center items-center ${opinion === 3 || opinion === 0 ? 'bg-[#FBA650]' : 'bg-[#8E8E8E]'}`}
+              className={`w-96 h-28  rounded-lg justify-center items-center ${opinion === 'ABSTAIN' || opinion === null ? 'bg-[#FBA650]' : 'bg-[#8E8E8E]'}`}
             >
               <p className="text-white text-4xl font-semibold">기권</p>
             </button>

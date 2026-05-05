@@ -1,82 +1,8 @@
-import { useState, useEffect } from 'react';
-
-import SearchIcon from '../../assets/icons/Search.svg';
-import { useUserApi } from '../../hooks/useUserApi';
-import { useDeptApi } from '../../hooks/useDeptApi';
-
 import { useManagerRealtime } from '../../contexts/ManagerRealtimeContext';
 import Toggle from '../../components/Toggle';
 
 const Setting = () => {
-  const { state, totalCount, attendCount, latestAttendanceUpdate } =
-    useManagerRealtime();
-
-  const [userList, setUserList] = useState<
-    {
-      userId: number;
-      userName: string;
-      userPos: string;
-      deptId: number;
-      deptName: string;
-      attend: boolean;
-      emergency: boolean;
-    }[]
-  >([]);
-
-  const [deptList, setDeptList] = useState<
-    {
-      deptId: number;
-      deptName: string;
-    }[]
-  >([]);
-
-  const [name, setName] = useState('');
-
-  const handleAttendToggle = async (userId: number) => {
-    try {
-      const res = await useUserApi.attendCheck({ userId });
-    } catch (e) {
-      console.error('출석 체크 실패', e);
-    }
-  };
-
-  useEffect(() => {
-    if (!latestAttendanceUpdate) return;
-
-    setUserList((prev) =>
-      prev.map((user) =>
-        user.userId === latestAttendanceUpdate.userId
-          ? { ...user, attend: latestAttendanceUpdate.attend }
-          : user,
-      ),
-    );
-  }, [latestAttendanceUpdate]);
-
-  useEffect(() => {
-    document.body.className = 'pc_white';
-  }, []);
-
-  useEffect(() => {
-    const fetchUserList = async () => {
-      try {
-        const res = await useUserApi.findAll();
-        setUserList(res.data);
-      } catch (e) {
-        console.error('사용자 목록 조회 실패', e);
-      }
-    };
-    const fetchDeptList = async () => {
-      try {
-        const res = await useDeptApi.findAll();
-        setDeptList(res.data);
-      } catch (e) {
-        console.error('소속 목록 조회', e);
-      }
-    };
-
-    fetchUserList();
-    fetchDeptList();
-  }, []);
+  const { state } = useManagerRealtime();
 
   return (
     <div className=" ml-[294px] flex flex-col w-[calc(100vw-294px)] ">

@@ -10,4 +10,7 @@ export const useVoteApi = {
 
   result: (data: { agendaId: number }) =>
     api.get(`/vote/result/${data.agendaId}`),
+
+  list: (data: { agendaId: number }) =>
+    api.get(`/vote/agenda/${data.agendaId}`),
 };

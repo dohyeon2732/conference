@@ -10,4 +10,6 @@ export const useAttendanceApi = {
     api.delete(`/attendance/${data.attendanceId}`),
   findByAgendaId: (data: { agendaId: number }) =>
     api.get(`/attendance/agenda/${data.agendaId}`),
+  findByAgendaIdUserId: (data: { agendaId: number; userId: number }) =>
+    api.get(`/attendance/agenda/${data.agendaId}/user/${data.userId}`),
 };

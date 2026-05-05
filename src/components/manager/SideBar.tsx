@@ -65,7 +65,7 @@ const SideBar = () => {
             : 'bg-transparent text-black hover:bg-zinc-100'
         }`}
         onClick={() => {
-          state === 'VOTING' && navigate('/manager/result');
+          navigate('/manager/result');
         }}
       >
         의결 공개

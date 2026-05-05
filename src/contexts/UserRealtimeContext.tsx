@@ -15,6 +15,7 @@ type AttendanceUpdate = {
 
 type UserRealtimeContextValue = {
   state: StateValue;
+  currentAgendaId: number | null;
   myAttendance: boolean;
   latestAttendanceUpdate: AttendanceUpdate | null;
   refreshState: () => Promise<void>;
@@ -26,6 +27,7 @@ const UserRealtimeContext = createContext<UserRealtimeContextValue | null>(
 
 export const UserRealtimeProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<StateValue>('PROGRESS');
+  const [currentAgendaId, setCurrentAgendaId] = useState<number | null>(null);
   const [myAttendance, setMyAttendance] = useState(false);
   const [latestAttendanceUpdate, setLatestAttendanceUpdate] =
     useState<AttendanceUpdate | null>(null);
@@ -35,6 +37,7 @@ export const UserRealtimeProvider = ({ children }: { children: ReactNode }) => {
   const refreshState = async () => {
     const res = await useStateApi.state();
     setState(res.data.currentState);
+    setCurrentAgendaId(res.data.currentAgendaId);
   };
 
   useEffect(() => {
@@ -51,6 +54,7 @@ export const UserRealtimeProvider = ({ children }: { children: ReactNode }) => {
     const eventSource = useStateApi.stateStream(
       (data) => {
         setState(data.currentState);
+        setCurrentAgendaId(data.currentAgendaId);
       },
       (error) => {
         console.error('상태 SSE 연결 오류', error);
@@ -87,6 +91,7 @@ export const UserRealtimeProvider = ({ children }: { children: ReactNode }) => {
     <UserRealtimeContext.Provider
       value={{
         state,
+        currentAgendaId,
         myAttendance,
         latestAttendanceUpdate,
         refreshState,

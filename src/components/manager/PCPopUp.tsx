@@ -17,7 +17,6 @@ const PCPopUp = ({
   isOpen,
   onRequestClose,
   title,
-  descript,
   first,
   second,
   onFirstClick,

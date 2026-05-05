@@ -33,7 +33,7 @@ const Attend = () => {
 
   const handleAttendToggle = async (userId: number) => {
     try {
-      const res = await useUserApi.attendCheck({ userId });
+      await useUserApi.attendCheck({ userId });
     } catch (e) {
       console.error('출석 체크 실패', e);
     }

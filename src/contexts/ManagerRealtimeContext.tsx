@@ -21,6 +21,7 @@ type AttendanceUpdate = {
 
 type ManagerRealtimeContextValue = {
   state: StateValue;
+  currentAgendaId: number | null;
   totalCount: number;
   attendCount: number;
   latestAttendanceUpdate: AttendanceUpdate | null;
@@ -37,6 +38,7 @@ export const ManagerRealtimeProvider = ({
   children: ReactNode;
 }) => {
   const [state, setState] = useState<StateValue>('PROGRESS');
+  const [currentAgendaId, setCurrentAgendaId] = useState<number | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [attendCount, setAttendCount] = useState(0);
   const [latestAttendanceUpdate, setLatestAttendanceUpdate] =
@@ -45,6 +47,7 @@ export const ManagerRealtimeProvider = ({
   const refreshState = async () => {
     const res = await useStateApi.state();
     setState(res.data.currentState);
+    setCurrentAgendaId(res.data.currentAgendaId);
   };
 
   const refreshAttendanceCount = async () => {
@@ -62,6 +65,7 @@ export const ManagerRealtimeProvider = ({
     const eventSource = useStateApi.stateStream(
       (data) => {
         setState(data.currentState);
+        setCurrentAgendaId(data.currentAgendaId);
       },
       (error) => {
         console.error('상태 SSE 연결 오류', error);
@@ -108,6 +112,7 @@ export const ManagerRealtimeProvider = ({
     <ManagerRealtimeContext.Provider
       value={{
         state,
+        currentAgendaId,
         totalCount,
         attendCount,
         latestAttendanceUpdate,

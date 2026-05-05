@@ -11,6 +11,7 @@ import LoginManager from '../pages/LoginManager';
 import ManagerLayout from '../layouts/ManagerLayout';
 import { UserRealtimeProvider } from '../contexts/UserRealtimeContext';
 import Setting from '../pages/manager/Setting';
+import { ManagerRealtimeProvider } from '../contexts/ManagerRealtimeContext';
 
 // const AuthGuard = ({ children }: { children: JSX.Element }) => {
 //   const token = localStorage.getItem("accessToken");
@@ -22,7 +23,14 @@ import Setting from '../pages/manager/Setting';
 const router = createBrowserRouter([
   { path: '/', element: <Login /> },
   { path: '/manager/login', element: <LoginManager /> },
-  { path: '/manager/result', element: <Result /> },
+  {
+    path: '/manager/result',
+    element: (
+      <ManagerRealtimeProvider>
+        <Result />
+      </ManagerRealtimeProvider>
+    ),
+  },
 
   {
     path: '/home',

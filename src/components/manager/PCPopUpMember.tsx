@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import PCPopupButton from '../button/PCPopupButton';
 import ReactModal from 'react-modal';
-import PCComboBox from '../PCComboBox';
 
 interface PopUpCardProps {
   isOpen: boolean;
@@ -22,7 +21,6 @@ const PCPopUp = ({
   isOpen,
   onRequestClose,
   title,
-  descript,
   first,
   second,
   onFirstClick,

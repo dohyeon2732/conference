@@ -11,11 +11,10 @@ export default function Toggle({ state }: { state: string }) {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!enabled) {
-        const res = await useStateApi.change({ currentState: 'STOP' });
-      } else {
-        const res = await useStateApi.change({ currentState: 'PROGRESS' });
-      }
+      await useStateApi.change({
+        currentState: enabled ? 'PROGRESS' : 'STOP',
+        currentAgendaId: null,
+      });
     };
     fetchData();
   }, [enabled]);

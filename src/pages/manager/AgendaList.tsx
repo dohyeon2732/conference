@@ -29,6 +29,7 @@ const AgendaList = () => {
         const sortedData = [...res.data].sort(
           (a, b) => b.agendaId - a.agendaId,
         );
+        console.log(sortedData);
         setAgendaList(sortedData);
       } catch (error) {
         console.error('의결 항목 리스트를 불러오는 중 오류 발생:', error);
@@ -52,7 +53,7 @@ const AgendaList = () => {
         </button>
       </div>
       <div className="flex flex-col gap-7 mt-[90px] pt-8 mx-8">
-        {agendaList.map((agenda, i) => (
+        {agendaList.map((agenda) => (
           <div
             key={agenda.agendaId}
             className="flex flex-row w-[calc(100vw-360px)] h-[110px] px-6 py-12  items-center justify-between bg-zinc-100 rounded-lg cursor-default"

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import ArrowRight from '../../assets/icons/ArrowRight.svg';
 import { useStateApi } from '../../hooks/useStateApi';
@@ -14,15 +14,11 @@ type AttendanceVote = {
   attendanceId: number;
   agendaId: number;
   userId: number;
-  userName: string;
-  userPos: string;
-  deptName: string;
   voteValue: 'AGREE' | 'DISAGREE' | 'ABSTAIN' | null;
 };
 
 const Agenda = () => {
-  const { state, totalCount, attendCount, latestAttendanceUpdate } =
-    useManagerRealtime();
+  const { state, totalCount, attendCount } = useManagerRealtime();
 
   useEffect(() => {
     document.body.className = 'pc_white';
@@ -78,6 +74,7 @@ const Agenda = () => {
         console.error('사용자 목록 조회 실패', e);
       }
     };
+
     const fetchDeptList = async () => {
       try {
         const res = await useDeptApi.findAll();
@@ -100,6 +97,7 @@ const Agenda = () => {
     abstainCount: 0,
     totalVotes: 0,
   });
+
   const [attendanceList, setAttendanceList] = useState<AttendanceVote[]>([]);
 
   const isQuorumMet = attendCount >= Math.ceil(totalCount / 2);
@@ -115,7 +113,9 @@ const Agenda = () => {
       }
       return { text: '정족수 미달', color: '#A3A3A3', disabled: true };
     }
-
+    if (state === 'RESULT') {
+      return { text: '속개하기', color: '#34AE6B', disabled: false };
+    }
     return { text: '정회 중', color: '#A3A3A3', disabled: true };
   })();
 
@@ -123,14 +123,14 @@ const Agenda = () => {
     if (voteValue === 'AGREE') return 'bg-[#57AA5A]';
     if (voteValue === 'DISAGREE') return 'bg-[#F74040]';
     if (voteValue === 'ABSTAIN') return 'bg-[#FBA650]';
-    return 'bg-[#A3A3A3]';
+    return 'bg-[#fff]';
   };
 
-  const getVoteText = (voteValue: AttendanceVote['voteValue']) => {
+  const getTextColor = (voteValue: AttendanceVote['voteValue']) => {
     if (voteValue === 'AGREE') return 'text-white';
     if (voteValue === 'DISAGREE') return 'text-white';
     if (voteValue === 'ABSTAIN') return 'text-white';
-    return 'text-zinc-800';
+    return 'text-[#303030]';
   };
 
   const fetchAttendanceList = async (agendaId: number) => {
@@ -143,7 +143,7 @@ const Agenda = () => {
     }
   };
 
-  const fetchVote = async () => {
+  const fetchVoteResult = async (agendaId: number) => {
     try {
       const res = await useVoteApi.result({ agendaId });
       console.log('투표 결과', res.data);
@@ -172,8 +172,11 @@ const Agenda = () => {
         agendaMinimum: countOption ? true : false,
       });
       setAgendaId(res.data.agendaId);
-      const stateRes = await useStateApi.change({ currentState: 'VOTING' });
-      const attendanceRes = await useAttendanceApi.create({
+      await useStateApi.change({
+        currentState: 'VOTING',
+        currentAgendaId: res.data.agendaId,
+      });
+      await useAttendanceApi.create({
         agendaId: res.data.agendaId,
       });
       fetchAttendanceList(res.data.agendaId);
@@ -182,10 +185,33 @@ const Agenda = () => {
     }
   };
 
+  const restartProgress = async () => {
+    try {
+      await useStateApi.change({
+        currentState: 'PROGRESS',
+        currentAgendaId: null,
+      });
+      setAgendaName('');
+      setVoteResult({
+        agreeCount: 0,
+        disagreeCount: 0,
+        abstainCount: 0,
+        totalVotes: 0,
+      });
+      setAttendanceList([]);
+      navigate(`/manager/agendalist`);
+    } catch (e) {
+      console.error('진행 재시작 실패', e);
+    }
+  };
+
   const closeAgenda = async () => {
     try {
       await useAgendaApi.close({ agendaId });
-      useStateApi.change({ currentState: 'PROGRESS' });
+      await useStateApi.change({
+        currentState: 'RESULT',
+        currentAgendaId: agendaId,
+      });
     } catch (e) {
       console.error('의결 종료 실패', e);
     }
@@ -193,12 +219,55 @@ const Agenda = () => {
   useEffect(() => {
     if (state !== 'VOTING' || !agendaId) return;
 
+    fetchVoteResult(agendaId);
+    fetchAttendanceList(agendaId);
+
     const interval = setInterval(() => {
-      fetchVote();
+      fetchVoteResult(agendaId);
+      fetchAttendanceList(agendaId);
     }, 500);
 
     return () => clearInterval(interval);
   }, [state, agendaId]);
+
+  useEffect(() => {
+    if (state !== 'VOTING') return;
+    fetchCurrentAgenda();
+  }, [state]);
+
+  const fetchCurrentAgenda = async () => {
+    try {
+      const res = await useAgendaApi.findAll();
+
+      const currentAgenda = res.data
+        .filter(
+          (agenda: { agendaId: number; agendaState: boolean }) =>
+            agenda.agendaState,
+        )
+        .at(-1);
+
+      if (!currentAgenda) return;
+
+      setAgendaId(currentAgenda.agendaId);
+      setAgendaName(currentAgenda.agendaName);
+
+      fetchVoteResult(currentAgenda.agendaId);
+      fetchAttendanceList(currentAgenda.agendaId);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const voteMap = useMemo(
+    () =>
+      new Map(
+        attendanceList.map((attendance) => [
+          attendance.userId,
+          attendance.voteValue,
+        ]),
+      ),
+    [attendanceList],
+  );
 
   return (
     <div className=" ml-[294px] flex flex-col w-[calc(100vw-314px)] ">
@@ -226,7 +295,7 @@ const Agenda = () => {
             className="absolute left-24 top-3"
           />
           <input
-            className="w-[calc(100vw-1021px)]  h-12 p-3 pl-12 bg-zinc-100 rounded-lg text-2xl font-bold "
+            className="w-[calc(100vw-1002px)]  h-12 p-3 pl-12 bg-zinc-100 rounded-lg text-2xl font-bold "
             type="text"
             placeholder="안건 명을 입력하세요"
             value={agendaName}
@@ -264,10 +333,10 @@ const Agenda = () => {
             onClick={() => {
               if (state === 'VOTING') {
                 closeAgenda();
-                navigate(`/manager/agendalist`);
-                return;
               } else if (state === 'PROGRESS') {
                 createAgenda();
+              } else if (state === 'RESULT') {
+                restartProgress();
               }
             }}
             disabled={buttonInfo.disabled}
@@ -307,7 +376,7 @@ const Agenda = () => {
             </div>
           </div>
         </div>
-        {state === 'VOTING' && (
+        {(state === 'RESULT' || state === 'VOTING') && (
           <div className="flex flex-row w-[calc(100vw-390px)] gap-5 justify-between items-center">
             {/* 정족수 등 */}
             <div className="flex flex-row gap-5">
@@ -352,7 +421,7 @@ const Agenda = () => {
         )}
       </div>
       <div
-        className={`flex flex-col gap-4 mt-[244px] mx-12 ${state === 'VOTING' ? 'mt-[300px]' : 'mt-[220px]'}`}
+        className={`flex flex-col gap-4 mt-[244px] mx-12 ${state === 'RESULT' || state === 'VOTING' ? 'mt-[300px]' : 'mt-[220px]'}`}
       >
         {/* 출석부 테이블 */}
         {/* {state === 'VOTING' &&(  */}
@@ -364,28 +433,33 @@ const Agenda = () => {
             <div className="flex flex-row  w-[calc(100vw-390px)] p-3 bg-[#F1F1F1] rounded-xl gap-3 justify-start items-start flex-wrap content-start ">
               {userList
                 .filter((user) => user.deptId === dept.deptId)
-                .map((user) => (
-                  <div key={user.userId}>
-                    <div
-                      className={`flex flex-col py-1.5 px-6 rounded-lg justify-center items-center ${
-                        user.attend && !user.emergency
-                          ? 'bg-white'
-                          : 'bg-[#A3A3A3]'
-                      } cursor-default`}
-                    >
-                      <p
-                        className={`text-2xl font-bold ${user.attend && !user.emergency ? 'text-zinc-800' : 'text-white'}`}
+                .map((user) => {
+                  const voteValue = voteMap.get(user.userId) ?? null;
+
+                  console.log(user.attend, user.emergency);
+                  return (
+                    <div key={user.userId}>
+                      <div
+                        className={`flex flex-col py-1.5 px-6 rounded-lg justify-center items-center ${
+                          user.attend && !user.emergency
+                            ? getVoteColor(voteValue)
+                            : 'bg-[#A3A3A3]'
+                        } cursor-default`}
                       >
-                        {user.userPos}
-                      </p>
-                      <p
-                        className={`text-2xl font-bold ${user.attend && !user.emergency ? 'text-zinc-800' : 'text-white'}`}
-                      >
-                        {user.userName}
-                      </p>
+                        <p
+                          className={`text-2xl font-bold ${user.attend && !user.emergency ? getTextColor(voteValue) : 'text-white'}`}
+                        >
+                          {user.userPos}
+                        </p>
+                        <p
+                          className={`text-2xl font-bold ${user.attend && !user.emergency ? getTextColor(voteValue) : 'text-white'}`}
+                        >
+                          {user.userName}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         ))}{' '}
